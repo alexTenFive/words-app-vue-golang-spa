@@ -7,17 +7,40 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 // Variable for storing words until new data not wiil be recieved
-var words map[string]int
+type SafeMap struct {
+	val map[string]int
+	m   sync.Mutex
+}
+
+func (i *SafeMap) Get() map[string]int {
+	// The `Lock` method of the mutex blocks if it is already locked
+	// if not, then it blocks other calls until the `Unlock` method is called
+	i.m.Lock()
+	// Defer `Unlock` until this method returns
+	defer i.m.Unlock()
+	// Return the value
+	return i.val
+}
+
+func (i *SafeMap) Set(val map[string]int) {
+	// Similar to the `Get` method, except we Lock until we are done
+	// writing to `i.val`
+	i.m.Lock()
+	defer i.m.Unlock()
+	i.val = val
+}
+
+var words SafeMap
 
 const staticDir = "pkg/http/web/app/dist/"
 
 // LargeText represent large string
 type LargeText struct {
-	Text   string `json:"text"`
-	Number int    `json:"number"`
+	Text string `json:"text"`
 }
 
 func main() {
@@ -30,10 +53,10 @@ func main() {
 	results := make(chan map[string]int)
 
 	handleText := getText(text)
-	handleResults := getResults(results)
+	handleResults := getResults()
 
 	go WordsCount(text, results)
-
+	go Results(results)
 	// Front
 	http.Handle("/", handleVue)
 	// API
@@ -42,16 +65,10 @@ func main() {
 	log.Fatal(http.ListenAndServe(":9090", nil))
 }
 
-func indexHandler(entrypoint string) func(w http.ResponseWriter, r *http.Request) {
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, entrypoint)
-	}
-	return http.HandlerFunc(fn)
-}
-
-func getResults(results <-chan map[string]int) func(http.ResponseWriter, *http.Request) {
+func getResults() func(http.ResponseWriter, *http.Request) {
 	return func(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Set("Access-Control-Allow-Origin", "*")
+		rw.Header().Set("Access-Control-Allow-Methods", "OPTIONS")
 		rw.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		rw.Header().Set("Content-Type", "application/json")
 
@@ -62,16 +79,10 @@ func getResults(results <-chan map[string]int) func(http.ResponseWriter, *http.R
 			If new data waiting save it like json and send to client
 			else send data from store var words
 		*/
-		select {
-		case result := <-results:
-			words = result
-			jsWords, err = json.Marshal(result)
-		default:
-			jsWords, err = json.Marshal(words)
-		}
+		jsWords, err = json.Marshal(words.Get())
 
 		if err != nil {
-			panic(err)
+			http.Error(rw, "Error while encoding", 400)
 		}
 		// 200
 		rw.WriteHeader(http.StatusOK)
@@ -91,13 +102,13 @@ func getText(text chan<- string) func(http.ResponseWriter, *http.Request) {
 
 		err := json.NewDecoder(req.Body).Decode(&lt)
 		if err != nil {
-			panic(err)
+			http.Error(rw, "Error while decoding", 400)
 		}
 
 		text <- lt.Text
 
 		rw.Header().Set("Access-Control-Allow-Origin", "*")
-		rw.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		rw.Header().Set("Access-Control-Allow-Methods", "OPTIONS")
 		rw.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		rw.Header().Set("Content-Type", "application/json")
 
@@ -116,6 +127,13 @@ WordsCount
 func WordsCount(text <-chan string, results chan<- map[string]int) {
 	for {
 		results <- countWords(getWordsFrom(strings.ToLower(<-text)))
+	}
+}
+
+// Results save results
+func Results(results <-chan map[string]int) {
+	for {
+		words.Set(<-results)
 	}
 }
 
