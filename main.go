@@ -10,25 +10,21 @@ import (
 	"sync"
 )
 
-// Variable for storing words until new data not wiil be recieved
+// SafeMap for storing words until new data not will be recieved
 type SafeMap struct {
 	val map[string]int
 	m   sync.Mutex
 }
 
+// Get SafeMap
 func (i *SafeMap) Get() map[string]int {
-	// The `Lock` method of the mutex blocks if it is already locked
-	// if not, then it blocks other calls until the `Unlock` method is called
 	i.m.Lock()
-	// Defer `Unlock` until this method returns
 	defer i.m.Unlock()
-	// Return the value
 	return i.val
 }
 
+// Set data to SafeMap
 func (i *SafeMap) Set(val map[string]int) {
-	// Similar to the `Get` method, except we Lock until we are done
-	// writing to `i.val`
 	i.m.Lock()
 	defer i.m.Unlock()
 	i.val = val
@@ -44,7 +40,7 @@ type LargeText struct {
 }
 
 func main() {
-	// Serve from server
+	// Serve front server
 	handleVue := http.FileServer(Vue(staticDir))
 
 	// Channel for recieve text
@@ -53,42 +49,41 @@ func main() {
 	results := make(chan map[string]int)
 
 	handleText := getText(text)
-	handleResults := getResults()
-
+	// handle text
 	go WordsCount(text, results)
+	// get results
 	go Results(results)
 	// Front
 	http.Handle("/", handleVue)
 	// API
 	http.HandleFunc("/api/send", handleText)
-	http.HandleFunc("/api/results", handleResults)
+	http.HandleFunc("/api/results", getResults)
+
 	log.Fatal(http.ListenAndServe(":9090", nil))
 }
 
-func getResults() func(http.ResponseWriter, *http.Request) {
-	return func(rw http.ResponseWriter, req *http.Request) {
-		rw.Header().Set("Access-Control-Allow-Origin", "*")
-		rw.Header().Set("Access-Control-Allow-Methods", "OPTIONS")
-		rw.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		rw.Header().Set("Content-Type", "application/json")
+func getResults(rw http.ResponseWriter, req *http.Request) {
+	var jsWords []byte
+	var err error
 
-		var jsWords []byte
-		var err error
+	/*
+		If new data waiting save it like json and send to client
+		else send data from store var words
+	*/
+	jsWords, err = json.Marshal(words.Get())
 
-		/*
-			If new data waiting save it like json and send to client
-			else send data from store var words
-		*/
-		jsWords, err = json.Marshal(words.Get())
-
-		if err != nil {
-			http.Error(rw, "Error while encoding", 400)
-		}
-		// 200
-		rw.WriteHeader(http.StatusOK)
-		// JSON
-		rw.Write(jsWords)
+	if err != nil {
+		http.Error(rw, "Error while encoding", 400)
 	}
+
+	rw.Header().Set("Access-Control-Allow-Origin", "*")
+	rw.Header().Set("Access-Control-Allow-Methods", "OPTIONS")
+	rw.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	rw.Header().Set("Content-Type", "application/json")
+	// 200
+	rw.WriteHeader(http.StatusOK)
+	// JSON
+	rw.Write(jsWords)
 }
 
 func getText(text chan<- string) func(http.ResponseWriter, *http.Request) {
