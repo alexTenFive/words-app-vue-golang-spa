@@ -11,7 +11,7 @@
                             <v-data-table
                                 :headers="headers"
                                 :items="words"
-                                :sort-by="quantity"
+                                :pagination.sync="pagination"
                             >
                                 <v-toolbar dark color="teal">
                                                             <v-toolbar-title justify-center>Input large text</v-toolbar-title>
@@ -37,6 +37,9 @@ import axios from 'axios';
   export default {
     data () {
       return {
+        pagination: {
+          sortBy: 'quantity'
+        },
         headers: [
           {
             text: 'Word',
@@ -46,21 +49,29 @@ import axios from 'axios';
           },
           { text: 'Quantity', value: 'quantity', mustSort: true },
         ],
-        words: []
+        words: [
+          {
+            word: '',
+            quantity: 0
+          }
+        ]
       }
     },
     methods: {
       results() {
+        this.words = [];
+
         axios.get('http://localhost:9090/api/results')
         .then(res => {
           for (let word in res.data) {
             this.words.push({ word: word, quantity: res.data[word] });
           }
-        })
-        .catch(error =>  {
-            console.log(error);
         });
       }
+    },
+    created() {
+      this.pagination.descending = true;
+      this.results();
     }
   }
 </script>

@@ -42,13 +42,7 @@ export default {
             text: this.text, 
             number: 12 
         });
-        axios.post('http://localhost:9090/api/send', data)
-        .then(res => {
-            console.log(res);
-        })
-        .catch(error =>  {
-            console.log(error);
-        });
+        axios.post('http://localhost:9090/api/send', data);
     }
   },
 }
