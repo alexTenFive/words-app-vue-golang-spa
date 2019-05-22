@@ -59,10 +59,9 @@ import axios from 'axios';
     },
     methods: {
       results() {
-        this.words = [];
-
-        axios.get('http://localhost:9090/api/results')
+        axios.get('/api/results')
         .then(res => {
+          this.words = [];
           for (let word in res.data) {
             this.words.push({ word: word, quantity: res.data[word] });
           }

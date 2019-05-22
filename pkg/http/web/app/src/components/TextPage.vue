@@ -38,14 +38,9 @@ export default {
   },
   methods: {
     send () {
-        let data = JSON.stringify({ 
-            text: this.text, 
-            number: 12 
-        });
-        axios.post('http://localhost:9090/api/send', data)
-        .then(res => {
-            console.log(res);
-        });
+        let data = JSON.stringify({ text: this.text });
+        axios.post('/api/send', data)
+        .then(res => { console.log(res); });
     }
   },
 }
