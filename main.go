@@ -74,12 +74,10 @@ func getResults(rw http.ResponseWriter, req *http.Request) {
 
 	if err != nil {
 		http.Error(rw, "Error while encoding", 400)
+		return
 	}
 
-	rw.Header().Set("Access-Control-Allow-Origin", "*")
-	rw.Header().Set("Access-Control-Allow-Methods", "OPTIONS")
-	rw.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	rw.Header().Set("Content-Type", "application/json")
+	setHeaders(rw)
 	// 200
 	rw.WriteHeader(http.StatusOK)
 	// JSON
@@ -98,17 +96,21 @@ func getText(text chan<- string) func(http.ResponseWriter, *http.Request) {
 		err := json.NewDecoder(req.Body).Decode(&lt)
 		if err != nil {
 			http.Error(rw, "Error while decoding", 400)
+			return
 		}
 
 		text <- lt.Text
 
-		rw.Header().Set("Access-Control-Allow-Origin", "*")
-		rw.Header().Set("Access-Control-Allow-Methods", "OPTIONS")
-		rw.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		rw.Header().Set("Content-Type", "application/json")
-
+		setHeaders(rw)
 		rw.WriteHeader(http.StatusOK)
 	}
+}
+
+func setHeaders(rw http.ResponseWriter) {
+	rw.Header().Set("Access-Control-Allow-Origin", "*")
+	rw.Header().Set("Access-Control-Allow-Methods", "OPTIONS")
+	rw.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	rw.Header().Set("Content-Type", "application/json")
 }
 
 /*

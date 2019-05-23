@@ -59,11 +59,13 @@ import axios from 'axios';
     },
     methods: {
       results() {
+        let that = this;
+        
         axios.get('/api/results')
         .then(res => {
-          this.words = [];
+          that.words = [];
           for (let word in res.data) {
-            this.words.push({ word: word, quantity: res.data[word] });
+            that.words.push({ word: word, quantity: res.data[word] });
           }
         });
       }
